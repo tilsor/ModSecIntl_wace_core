@@ -1,0 +1,23 @@
+---
+#WACE configuration file
+
+# WACE general configuration
+#The full path to the wace log file
+logpath: "/var/log/wace.log"
+#The level of debug, the valid options are - ERRO, WARN, INFO, DEBUG
+loglevel: "INFO"
+#The address WACE listens for connections
+listenaddress:
+#The port WACE listens for connections
+listenport: "50051"
+
+#The model plugins configuration
+modelplugins:
+
+#The decision plugin configuration
+decisionplugins:
+  - id: "simple"
+    path: "/usr/lib64/wace/plugins/decision/simple.so"
+#    wafweight: 0.5
+#    decisionbalance: 0.5
+#    params:

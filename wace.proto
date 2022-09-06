@@ -1,0 +1,114 @@
+/* To compile:
+
+     protoc --go_out=. --go-grpc_out=. wace.proto
+ 
+   This creates two files in the waceproto directory:
+     + wace.pb.go: which contains all the protocol buffer code to
+       populate, serialize, and retrieve request and response message
+       types.
+     + wace_grpc.pb.go, which contains an interface type for servers
+       to implement, and a stub for implementing clients.
+*/
+
+syntax = "proto3";
+
+// Directory where generated go files are stored
+option go_package = "/waceproto"; 
+
+package waceproto;
+
+// Interface exported by WACE
+service WaceProto {
+  // A client WAF sends a whole request (including body) to WACE for
+  // analysis.
+  rpc SendRequest(SendRequestParams) returns (SendRequestResult) {}
+  // A client WAF sends only request line and headers (no body) to
+  // WACE for analysis.
+  rpc SendReqLineAndHeaders(SendReqLineAndHeadersParams) returns (SendReqLineAndHeadersResult) {}
+  // A client WAF sends only the request body (no headers) to WACE for
+  // analysis.
+  rpc SendRequestBody(SendRequestBodyParams) returns (SendRequestBodyResult) {}
+  // Same as before, but with the response
+  rpc SendResponse(SendResponseParams) returns (SendResponseResult) {}
+  rpc SendRespLineAndHeaders(SendRespLineAndHeadersParams) returns (SendRespLineAndHeadersResult) {}
+  rpc SendResponseBody(SendResponseBodyParams) returns (SendResponseBodyResult) {}
+
+  // Ask WACE whether the transaction should be blocked or not.
+  rpc Check(CheckParams) returns (CheckResult) {}
+}
+
+// Request messages
+
+// SendRequest method parameter message.
+// Includes the transaction ID, the whole request (including body) as
+// a string, and the list of ML models to execute on the request.
+message SendRequestParams {
+  string transact_id = 1;
+  string request = 2;
+  repeated string model_id = 3;
+}
+// SendRequest method response message.
+message SendRequestResult {
+  int32 status_code = 1;
+}
+
+message SendReqLineAndHeadersParams {
+  string transact_id = 1;
+  string req_line = 2;
+  string req_headers = 3;
+  repeated string model_id = 4;
+}
+message SendReqLineAndHeadersResult {
+  int32 status_code = 1;
+}
+
+message SendRequestBodyParams {
+  string transact_id = 1;
+  string body = 2;
+  repeated string model_id = 3;
+}
+message SendRequestBodyResult {
+  int32 status_code = 1;
+}
+
+// Response messages
+
+message SendResponseParams {
+  string transact_id = 1;
+  string response = 2;
+  repeated string model_id = 3;
+}
+message SendResponseResult {
+  int32 status_code = 1;
+}
+
+message SendRespLineAndHeadersParams {
+  string transact_id = 1;
+  string status_line = 2;
+  string resp_headers = 3;
+  repeated string model_id = 4;
+}
+message SendRespLineAndHeadersResult {
+  int32 status_code = 1;
+}
+
+message SendResponseBodyParams {
+  string transact_id = 1;
+  string body = 2;
+  repeated string model_id = 3;
+}
+message SendResponseBodyResult {
+  int32 status_code = 1;
+}
+
+message CheckParams {
+  string transact_id = 1;
+  string decision_id = 2;
+  map<string,string> waf_params = 3;
+}
+message CheckResult {
+  int32 block_transaction = 1;
+  string msg = 2;
+  int32 status_code = 3;
+}
+ 

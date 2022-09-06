@@ -1,0 +1,10 @@
+[Unit]
+Description=WACE core service to communicate WAF with ML models.
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/wace /etc/wace/waceconfig.yaml
+
+[Install]
+WantedBy=multi-user.target

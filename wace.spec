@@ -1,5 +1,5 @@
 Name:           wace
-Version:        0.1
+Version:        1.0
 Release:        1%{?dist}
 Summary:        A framework for adding machine learning capabilities to WAFs and OWASP CRS
 
@@ -66,5 +66,5 @@ go test ./...
 # %license LICENSE
 
 %changelog
-* Thu Mar 24 2022 Juan Diego Campo <jdcampo@fing.edu.uy>
-- First beta release 0.1-1
+* Tue Sep 6 2022 Juan Diego Campo <jdcampo@fing.edu.uy>
+- Initial release 1.0-1

@@ -1,4 +1,4 @@
-# Proyect contributors:
+# Project contributors:
 
 - Gustavo Betarte ([Tilsor SA](https://tilsor.com.uy); [Facultad de Ingeniería, Universidad de la República](https://www.fing.edu.uy))
 - Daniel Calegari ([Facultad de Ingeniería, Universidad de la República](https://www.fing.edu.uy))

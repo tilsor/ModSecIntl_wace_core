@@ -16,12 +16,7 @@ yum-config-manager --enable tilsor-modsecintl-epel-8
 
 ## Roberta model
 
-1. Clone the repo:
-```
-git clone git@github.com:tilsor/ModSecIntl_roberta_model.git ~/roberta
-```
-
-2. Install dependencies:
+1. Install dependencies:
 ```
 dnf -y install python38 python38-devel
 
@@ -31,9 +26,7 @@ dnf -y install python38-numpy python38-Cython
 
 3. 
 ```
-cd ~/roberta/py
-make
-python3 -m pip install -r requirements.txt
+pip install server-roberta
 ```
 
 # Run everything:

@@ -24,7 +24,7 @@ dnf -y install python38 python38-devel
 dnf -y install python38-numpy python38-Cython
 ```
 
-3. 
+3. Install Roberta model
 ```
 pip install server-roberta
 ```

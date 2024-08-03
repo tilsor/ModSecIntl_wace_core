@@ -31,13 +31,13 @@ export GOPATH=~/go
 export PATH=$PATH:$GOPATH/bin
 
 # This is only necessary as long as repos are private
-go env -w GOPRIVATE=github.com/tilsor/ModSecIntl_logger
-cat << EOF > /tmp/github-credentials.sh
+go env -w GOPRIVATE=github.com/tilsor/ModSecIntl_logging
+#cat << EOF > /tmp/github-credentials.sh
 #!/bin/bash
-echo username=$GIT_USERNAME
-echo password=$GIT_PASSWORD
-EOF
-git config --global credential.helper "/bin/bash /tmp/github-credentials.sh"
+#echo username=$GIT_USERNAME
+#echo password=$GIT_PASSWORD
+#EOF
+#git config --global credential.helper "/bin/bash /tmp/github-credentials.sh"
 
 make
 go build -v -o %{name}

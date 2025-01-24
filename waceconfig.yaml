@@ -1,23 +1,67 @@
----
+# ---
+# #WACE configuration file
+
+# # WACE general configuration
+# #The full path to the wace log file
+# logpath: "/var/log/wace.log"
+# #The level of debug, the valid options are - ERRO, WARN, INFO, DEBUG
+# loglevel: "INFO"
+# #The address WACE listens for connections
+# #The port WACE listens for connections
+
+# #The model plugins configuration
+# modelplugins:
+
+# #The decision plugin configuration
+# decisionplugins:
+#   - id: "simple"
+#     path: "/usr/lib64/wace/plugins/decision/simple.so"
+# #    wafweight: 0.5
+# #    decisionbalance: 0.5
+# #    params:
+
+
 #WACE configuration file
 
 # WACE general configuration
 #The full path to the wace log file
+# logpath: "/mnt/c/Users/tobia/Documents/Proyecto de grado/dev/log/wace.log"
 logpath: "/var/log/wace.log"
 #The level of debug, the valid options are - ERRO, WARN, INFO, DEBUG
-loglevel: "INFO"
-#The address WACE listens for connections
-listenaddress:
-#The port WACE listens for connections
-listenport: "50051"
+loglevel: "DEBUG"
 
-#The model plugins configuration
 modelplugins:
+  - id: "trivial"
+    plugintype: AllRequest
+    path: "/root/ModSecIntl_wace_core/_plugins/model/trivial.so"
+    weight: 0.25
+    mode: sync
+  - id: "trivial2"
+    plugintype: AllRequest
+    path: "/root/ModSecIntl_wace_core/_plugins/model/trivial2.so"
+    weight: 0.5
+    threshold: 0.25
+    mode: sync
+  - id: "trivial_async"
+    plugintype: AllRequest
+    path: "/root/ModSecIntl_wace_core/_plugins/model/trivial_async.so"
+    mode: async
+    params:
+      sleep_time: "1"
 
 #The decision plugin configuration
 decisionplugins:
-  - id: "simple"
-    path: "/usr/lib64/wace/plugins/decision/simple.so"
-#    wafweight: 0.5
-#    decisionbalance: 0.5
-#    params:
+  - id: "weighted_sum"
+    path: "/root/ModSecIntl_wace_core/_plugins/decision/weighted_sum.so"
+    params:
+      waf_weight: "0.5"
+      threshold: "0.5"
+
+natsurl: "nats-server:4222"
+
+options:
+  otelurl: "otel-collector:4317"
+  crs_version: "4.4.0-dev"
+  early_blocking: "false"
+  listenaddress:
+  listenport: "50051"

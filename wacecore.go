@@ -4,169 +4,205 @@ The main package of WACE.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
-	"strings"
-	"sync"
-	comm "wace/comm"
-	cf "wace/configstore"
+	"time"
 
-	pm "wace/pluginmanager"
+	// "strings"
+	// "sync"
+	comm "wace/comm"
+	// cf "wace/configstore"
+	cf "github.com/tiroa-tilsor/wacelib/configstore"
+
+	wace "github.com/tiroa-tilsor/wacelib"
 
 	lg "github.com/tilsor/ModSecIntl_logging/logging"
+
+	"gopkg.in/yaml.v3"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	// "go.opentelemetry.io/otel"
+	// "go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
-var plugins *pm.PluginManager
+// Analyze(modelsTypeAsString, transactionId, payload string, models []string)
 
-// transactionSync is a struct to syncronize the analysis of a given
-// transaction. Each time callPlugins is executed, the counter is
-// incremented. At the end of each callPlugins execution, a message is
-// sent through the channel, to signal checkTransaction that it has
-// finished analyzing the request. checkTransaction waits for Counter
-// number of messages in the channel, before calling the decision
-// plugin and sending the result to the client.
-type transactionSync struct {
-	Channel chan string
-	Counter int
+type WaceModels struct {
+	reqHeadModelIDs  []string
+	reqBodyModelIDs  []string
+	reqModelIDs      []string
+	respHeadModelIDs []string
+	respBodyModelIDs []string
+	respModelIDs     []string
 }
 
-var (
-	// channel to receive a notification when all plugins finish
-	// processing a transaction
-	analysisMap   = make(map[string](transactionSync))
-	analysisMutex = sync.RWMutex{}
-)
-
-func addTransactionAnalysis(transactionID string) {
-	analysisMutex.Lock()
-	sync, exists := analysisMap[transactionID]
-	if !exists {
-		analysisMap[transactionID] = transactionSync{
-			Channel: make(chan string),
-			Counter: 1,
-		}
-	} else {
-		sync.Counter++
-	}
-	analysisMutex.Unlock()
+type generalConfig struct {
+	otelURL              string
+	waceModels           *WaceModels
+	waceDecisions        []string
+	earlyBlocking        bool
+	crsVersion           string
+	ruleIdsForExceptions map[string]int
+	logPath              string
+	logLevel             lg.LogLevel
+	listenAddress        string
+	listenPort           string
 }
 
-// Call all appropriate plugins
-func callPlugins(input string, models []string, t cf.ModelPluginType, transactionID string) {
-	logger := lg.Get()
+// WaceGeneralConfigFileData holds the general configuration data from the config file
+type WaceGeneralConfigFileData struct {
+	cf.ConfigFileData    `yaml:",inline"`
+	Options              map[string]string `yaml:"options"`
+	RuleIdsForExceptions map[string]int    `yaml:"ruleidsforexceptions"`
+}
 
-	// channel to receive the status of the execution of the analysis
-	// of all the model plugins executed
-	modelPlugStatus := make(chan pm.ModelStatus)
+// WaceAppConfigFileData holds the application configuration data from the config file
+type WaceAppConfigFileData struct {
+	ModelIds   []string `yaml:"modelids"`
+	DecisionId string   `yaml:"decisionid"`
+	Options    map[string]string
+}
 
-	for _, id := range models {
-		logger.TPrintf(lg.DEBUG, transactionID, "%s | calling from core", id)
-		switch t {
-		case cf.RequestHeaders, cf.RequestBody, cf.AllRequest:
-			go plugins.ProcessRequest(id, input, t, transactionID, modelPlugStatus)
-		case cf.ResponseHeaders, cf.ResponseBody, cf.AllResponse:
-			go plugins.ProcessResponse(id, input, t, transactionID, modelPlugStatus)
+// LoadConfig loads the general configuration from the config file to memory
+func (g *generalConfig) LoadConfig(configFilePath string) error {
+	var file, err = os.ReadFile(configFilePath)
+	if err != nil {
+		return err
+	}
+	return g.LoadGeneralConfigYaml(file)
+}
+
+// LoadGeneralConfigYaml loads the general configuration from the config file to memory
+func (g *generalConfig) LoadGeneralConfigYaml(config []byte) error {
+	var inConf WaceGeneralConfigFileData
+
+	err := yaml.Unmarshal(config, &inConf)
+	if err != nil {
+		return err
+	}
+	for key, value := range inConf.Options {
+		if key == "early_blocking" {
+			g.earlyBlocking = value == "true"
+		} else if key == "crs_version" {
+			g.crsVersion = value
+		} else if key == "otelurl" {
+			g.otelURL = value
+		} else if key == "listenaddress" {
+			g.listenAddress = value
+		} else if key == "listenport" {
+			g.listenPort = value
+		}
+
+	}
+	if g.ruleIdsForExceptions == nil {
+		g.ruleIdsForExceptions = make(map[string]int)
+	}
+	for key, value := range inConf.RuleIdsForExceptions {
+		g.ruleIdsForExceptions[key] = value
+	}
+
+	err = cf.Get().SetConfig(inConf.ConfigFileData)
+	if err != nil {
+		return err
+	}
+
+	gConfig.logPath = inConf.ConfigFileData.Logpath
+	gConfig.logLevel, err = lg.StringToLogLevel(inConf.ConfigFileData.Loglevel)
+	if err != nil {
+		return err
+	}
+
+	g.waceModels = NewWaceDefaultModelsConfig()
+	for _, decision := range inConf.Decisionplugins {
+		g.waceDecisions = append(g.waceDecisions, decision.ID)
+	}
+
+	return err
+}
+
+// NewWaceDefaultModelsConfig creates the default WaceModels with the models stored in the WACE ConfigStore
+func NewWaceDefaultModelsConfig() *WaceModels {
+	conf := cf.Get()
+	reqHeadModelIDs := []string{}
+	reqBodyModelIDs := []string{}
+	reqModelIDs := []string{}
+	respHeadModelIDs := []string{}
+	respBodyModelIDs := []string{}
+	respModelIDs := []string{}
+	for _, model := range conf.ModelPlugins {
+		if model.PluginType.String() == "RequestHeaders" {
+			reqHeadModelIDs = append(reqHeadModelIDs, model.ID)
+		} else if model.PluginType.String() == "RequestBody" {
+			reqBodyModelIDs = append(reqBodyModelIDs, model.ID)
+		} else if model.PluginType.String() == "AllRequest" {
+			reqModelIDs = append(reqModelIDs, model.ID)
+		} else if model.PluginType.String() == "ResponseHeaders" {
+			respHeadModelIDs = append(respHeadModelIDs, model.ID)
+		} else if model.PluginType.String() == "ResponseBody" {
+			respBodyModelIDs = append(respBodyModelIDs, model.ID)
+		} else if model.PluginType.String() == "AllResponse" {
+			respModelIDs = append(respModelIDs, model.ID)
 		}
 	}
-	logger.TPrintf(lg.DEBUG, transactionID, "core | waiting for %d model plugins to finish", len(models))
-	for i := 0; i < len(models); i++ {
-		// Await for the execution of the model plugins
-		logger.TPrintf(lg.DEBUG, transactionID, "core | Waiting for model plugin %d...", i)
-		status := <-modelPlugStatus
-		if status.Err == nil {
-			logger.TPrintf(lg.DEBUG, transactionID, "%s | success. Result: %.5f", status.ModelID, status.Res)
-		} else {
-			logger.TPrintf(lg.WARN, transactionID, "%s | %v", status.ModelID, status.Err)
-		}
-	}
+	return &WaceModels{reqHeadModelIDs, reqBodyModelIDs, reqModelIDs, respHeadModelIDs, respBodyModelIDs, respModelIDs}
+}
 
-	analysisMutex.RLock()
-	analysisChan := analysisMap[transactionID].Channel
-	analysisMutex.RUnlock()
-	analysisChan <- "done"
-
+func initTransaction(transactionID string) int32 {
+	wace.InitTransaction(transactionID)
+	return 0
 }
 
 func analyzeRequest(transactionID, request string, models []string) int32 {
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | analyzing whole request: [%s...]", strings.Split(request, "\n")[0])
-	addTransactionAnalysis(transactionID)
-	go callPlugins(request, models, cf.AllRequest, transactionID)
+	wace.Analyze("AllRequest", transactionID, request, models)
 	return 0
 }
 
 func analyzeReqLineAndHeaders(transactionID, requestLine, requestHeaders string, models []string) int32 {
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | analyzing request line and headers: [%s...]", requestLine)
-	addTransactionAnalysis(transactionID)
-	go callPlugins(requestLine+requestHeaders, models, cf.RequestHeaders, transactionID)
+	wace.Analyze("RequestHeaders", transactionID, requestLine, models)
 	return 0
 }
 
 func analyzeRequestBody(transactionID, requestBody string, models []string) int32 {
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | analyzing request body: [%s...]", strings.Split(requestBody, "\n")[0])
-	addTransactionAnalysis(transactionID)
-	go callPlugins(requestBody, models, cf.RequestBody, transactionID)
+	wace.Analyze("RequestBody", transactionID, requestBody, models)
 	return 0
 }
 
 func analyzeResponse(transactionID, response string, models []string) int32 {
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | analyzing whole response: [%s...]", strings.Split(response, "\n")[0])
-	addTransactionAnalysis(transactionID)
-	go callPlugins(response, models, cf.AllResponse, transactionID)
+	wace.Analyze("AllResponse", transactionID, response, models)
 	return 0
 }
 
 func analyzeRespLineAndHeaders(transactionID, statusLine, responseHeaders string, models []string) int32 {
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | analyzing response line and headers: [%s...]", statusLine)
-	addTransactionAnalysis(transactionID)
-	go callPlugins(statusLine+responseHeaders, models, cf.ResponseHeaders, transactionID)
+	wace.Analyze("ResponseHeaders", transactionID, responseHeaders, models)
 	return 0
 }
 
 func analyzeResponseBody(transactionID, responseBody string, models []string) int32 {
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | analyzing response body: [%s...]", strings.Split(responseBody, "\n")[0])
-	addTransactionAnalysis(transactionID)
-	go callPlugins(responseBody, models, cf.ResponseBody, transactionID)
+	wace.Analyze("ResponseBody", transactionID, responseBody, models)
 	return 0
 }
 
 func checkTransaction(transactionID, decisionPlugin string, wafParams map[string]string) (bool, error) {
-
-	logger := lg.Get()
-	logger.TPrintf(lg.DEBUG, transactionID, "core | checking transaction")
-
-	analysisMutex.RLock()
-	sync, exists := analysisMap[transactionID]
-	analysisMutex.RUnlock()
-
-	if !exists {
-		return false, fmt.Errorf("transaction with id %s does not exist", transactionID)
-	}
-
-	logger.TPrintln(lg.DEBUG, transactionID, "core | waiting for all models to finish...")
-
-	for i := 0; i < sync.Counter; i++ {
-		<-sync.Channel
-	}
-
-	logger.TPrintln(lg.DEBUG, transactionID, "core | done, checking data...")
-	res, err := plugins.CheckResult(transactionID, decisionPlugin, wafParams)
-	analysisMutex.Lock()
-	delete(analysisMap, transactionID)
-	analysisMutex.Unlock()
-	if err == nil {
-		logger.TPrintf(lg.DEBUG, transactionID, "core | transaction checked successfully. Blocking transaction: %t", res)
-	} else {
-		logger.TPrintf(lg.ERROR, transactionID, "core | could not check transaction: %v", err)
-	}
-	return res, err
+	return wace.CheckTransaction(transactionID, decisionPlugin, wafParams)
 }
+
+func closeTransaction(transactionID string) int32 {
+	wace.CloseTransaction(transactionID)
+	return 0
+}
+
+var gConfig *generalConfig
+var ctx = context.Background()
+var meter metric.Meter
 
 func main() {
 	logger := lg.Get()
@@ -180,37 +216,115 @@ func main() {
 		SendRespLineAndHeaders: analyzeRespLineAndHeaders,
 		SendResponseBody:       analyzeResponseBody,
 		Check:                  checkTransaction,
+		Init:                   initTransaction,
+		Close:                  closeTransaction,
 	}
+
 	logger.Println(lg.DEBUG, "Opening wace configuration file...")
 	// Load the configuration
 	configFilePath := flag.Arg(0)
-	if configFilePath == "" {
-		logger.Println(lg.ERROR, "ERROR: Please specify the path to the WACE configuration file as an argument")
-		os.Exit(1)
-	}
-	conf := cf.Get()
-	err := conf.LoadConfig(configFilePath)
-	if err != nil {
-		logger.Printf(lg.ERROR, "ERROR: could not load configuration: %v", err)
-		os.Exit(1)
-	}
-	logger.Printf(lg.DEBUG, "Configuration loaded successfully from %s", configFilePath)
 
-	err = logger.LoadLogger(conf.LogPath, conf.LogLevel)
+	gConfig = new(generalConfig)
+	err := gConfig.LoadConfig(configFilePath)
+	if err != nil {
+		fmt.Print("Error loading general config: %v", err)
+		os.Exit(1)
+	}
+
+	InitMetrics(ctx, gConfig.otelURL)
+	wace.Init(getWaceMeter())
+
+	err = logger.LoadLogger(gConfig.logPath, gConfig.logLevel)
 	if err != nil {
 		logger.Printf(lg.ERROR, "ERROR: could not open wace log file: %v", err)
 		os.Exit(1)
-
 	}
-	logger.Printf(lg.DEBUG, "Writing logs to %s from now", conf.LogPath)
-
-	logger.Println(lg.DEBUG, "Loading plugin manager...")
-	plugins = pm.New()
-	logger.Println(lg.DEBUG, "Plugin manager loaded")
+	logger.Printf(lg.DEBUG, "Writing logs to %s from now", gConfig.logPath)
 
 	logger.Println(lg.DEBUG, "Server started, listening for connections...")
-	err = comm.Listen(handlers, conf.ListenAddress, conf.ListenPort)
+	err = comm.Listen(handlers, gConfig.listenAddress, gConfig.listenPort)
 	if err != nil {
 		logger.Printf(lg.ERROR, "ERROR: wace server failed: %v", err)
 	}
+}
+
+var serviceName = semconv.ServiceNameKey.String("wace-modsec-service")
+
+// initConn creates a gRPC connection to the OpenTelemetry Collector. It returns the connection object and an error if the connection fails.
+// This function is based on the example provided by OpenTelemetry Go contrib repository.
+// https://github.com/open-telemetry/opentelemetry-go-contrib/blob/main/examples/otel-collector/main.go
+func initConn(url string) (*grpc.ClientConn, error) {
+	// It connects the OpenTelemetry Collector through local gRPC connection.
+	// You may replace `localhost:4317` with your endpoint.
+	if url == "" {
+		url = "localhost:4317"
+	}
+	conn, err := grpc.NewClient(url,
+		// Note the use of insecure transport here. TLS is recommended in production.
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC connection to collector: %w", err)
+	}
+
+	return conn, err
+}
+
+// initMeterProvider initializes an OTLP exporter, and configures the corresponding meter provider.
+func initMeterProvider(ctx context.Context, res *resource.Resource, conn *grpc.ClientConn) (func(context.Context) error, error) {
+	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics exporter: %w", err)
+	}
+
+	meterProvider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(2*time.Second))),
+		sdkmetric.WithResource(res),
+	)
+
+	// Check if MeterProvider is already setted
+	// if otel.GetMeterProvider() != nil {
+	// 	//fmt.Printf("MeterProvider already setted")
+	// } else {
+	// 	//fmt.Printf("MeterProvider not setted")
+	// }
+
+	globalMeterProvider = meterProvider
+	meter = globalMeterProvider.Meter("wace-modsec")
+
+	return meterProvider.Shutdown, nil
+}
+
+var globalMeterProvider *sdkmetric.MeterProvider
+
+// getWaceMeter returns the meter for the WACE instrumentation.
+func getWaceMeter() metric.Meter {
+	return globalMeterProvider.Meter("wace")
+}
+
+// InitMetrics initializes the OpenTelemetry metrics instrumentation.
+func InitMetrics(ctx context.Context, url string) {
+	conn, err := initConn(url)
+	if err != nil {
+		panic(err)
+	}
+
+	res, err := resource.New(ctx,
+		resource.WithAttributes(
+			serviceName,
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = initMeterProvider(ctx, res, conn)
+	if err != nil {
+		panic(err)
+	}
+	// defer func() {
+	// 	if err := shutdownMeterProvider(ctx); err != nil {
+	// 		panic(err) // TODO handle error
+	// 	}
+	// }()
 }

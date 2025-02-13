@@ -5,7 +5,7 @@ go 1.22.9
 toolchain go1.23.4
 
 require (
-	github.com/tilsor/ModSecIntl_logging v1.0.0
+	github.com/tilsor/ModSecIntl_logging v1.0.1
 	github.com/tiroa-tilsor/wacelib v1.0.1
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.33.0
@@ -16,6 +16,8 @@ require (
 	google.golang.org/protobuf v1.36.2
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+replace github.com/tilsor/ModSecIntl_logging => github.com/tiroa-tilsor/ModSecIntl_logging v1.0.1
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect

@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	// "strings"
@@ -195,7 +196,34 @@ func checkTransaction(transactionID, decisionPlugin string, wafParams map[string
 	return wace.CheckTransaction(transactionID, decisionPlugin, wafParams)
 }
 
-func closeTransaction(transactionID string) int32 {
+func closeTransaction(transactionID string, metrics map[string]string) int32 {
+	for i, v := range metrics {
+		if i == "Response_code" {
+			processed, err := meter.Int64Counter("http.client.request.processed.total")
+			if err != nil {
+				logger.TPrintln(lg.ERROR, transactionID, "Error getting request counter: "+err.Error())
+			} else {
+				vInt, err := strconv.ParseInt(v, 10, 64)
+				if err != nil {
+					logger.TPrintln(lg.ERROR, transactionID, "Error getting response code: "+err.Error())
+				} else {
+					processed.Add(ctx, 1, metric.WithAttributes(semconv.HTTPResponseStatusCode(int(vInt))))
+					logger.TPrintln(lg.DEBUG, transactionID, "Metric "+i+" : "+v)
+				}
+			}
+		} else {
+			duration, err := meter.Float64Histogram("http.client." + i + ".duration.microseconds")
+			if err != nil {
+				logger.TPrintln(lg.ERROR, transactionID, "Error getting request histogram: "+err.Error())
+			} else {
+				if s, err := strconv.ParseFloat(v, 64); err == nil {
+					duration.Record(ctx, s)
+					logger.TPrintln(lg.DEBUG, transactionID, "Metric "+i+" : "+v)
+				}
+			}
+		}
+	}
+
 	wace.CloseTransaction(transactionID)
 	return 0
 }
@@ -203,9 +231,9 @@ func closeTransaction(transactionID string) int32 {
 var gConfig *generalConfig
 var ctx = context.Background()
 var meter metric.Meter
+var logger = lg.Get()
 
 func main() {
-	logger := lg.Get()
 
 	flag.Parse()
 	handlers := comm.Handlers{

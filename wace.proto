@@ -54,6 +54,7 @@ message InitResult {
 // Close messages
 message CloseParams {
   string transact_id = 1;
+  map<string,string> metric = 2;
 }
 message CloseResult {
   int32 status_code = 1;

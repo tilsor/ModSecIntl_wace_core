@@ -27,8 +27,8 @@ type Handlers struct {
 	SendRespLineAndHeaders func(string, string, string, []string) int32
 	SendResponseBody       func(string, string, []string) int32
 	Check                  func(string, string, map[string]string) (bool, error)
-	Init				   func(string) int32
-	Close				   func(string) int32
+	Init                   func(string) int32
+	Close                  func(string, map[string]string) int32
 }
 
 // type Result struct {
@@ -123,7 +123,7 @@ func (s *server) Init(ctx context.Context, in *pb.InitParams) (*pb.InitResult, e
 
 func (s *server) Close(ctx context.Context, in *pb.CloseParams) (*pb.CloseResult, error) {
 	startTransactionLogging(in.GetTransactId())
-	res := s.handlers.Close(in.GetTransactId())
+	res := s.handlers.Close(in.GetTransactId(), in.GetMetric())
 
 	return &pb.CloseResult{StatusCode: res}, nil
 }

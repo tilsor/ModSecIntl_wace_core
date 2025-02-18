@@ -4,6 +4,10 @@ The main package of WACE.
 package main
 
 import (
+	// _ "net/http/pprof" // DEBUG
+	// "net/http" // DEBUG
+	// "runtime/debug" // DEBUG
+
 	"context"
 	"flag"
 	"fmt"
@@ -33,6 +37,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 )
 
 // Analyze(modelsTypeAsString, transactionId, payload string, models []string)
@@ -235,6 +240,12 @@ var logger = lg.Get()
 
 func main() {
 
+	// debug.SetGCPercent(1) // DEBUG
+
+	// go func() {
+    //     http.ListenAndServe("localhost:9000", nil) // DEBUG
+    // }()
+
 	flag.Parse()
 	handlers := comm.Handlers{
 		SendRequest:            analyzeRequest,
@@ -284,9 +295,6 @@ var serviceName = semconv.ServiceNameKey.String("wace-modsec-service")
 func initConn(url string) (*grpc.ClientConn, error) {
 	// It connects the OpenTelemetry Collector through local gRPC connection.
 	// You may replace `localhost:4317` with your endpoint.
-	if url == "" {
-		url = "localhost:4317"
-	}
 	conn, err := grpc.NewClient(url,
 		// Note the use of insecure transport here. TLS is recommended in production.
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -299,10 +307,22 @@ func initConn(url string) (*grpc.ClientConn, error) {
 }
 
 // initMeterProvider initializes an OTLP exporter, and configures the corresponding meter provider.
-func initMeterProvider(ctx context.Context, res *resource.Resource, conn *grpc.ClientConn) (func(context.Context) error, error) {
-	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
+func initMeterProvider(ctx context.Context, res *resource.Resource, url string) (func(context.Context) error, error) {
+	metricExporter, err := stdoutmetric.New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics exporter: %w", err)
+	}
+
+	if url != "" {
+		conn, err := initConn(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create connection to Otel Collector: %w", err)
+		}
+
+		metricExporter, err = otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create metrics exporter: %w", err)
+		}
 	}
 
 	meterProvider := sdkmetric.NewMeterProvider(
@@ -332,11 +352,6 @@ func getWaceMeter() metric.Meter {
 
 // InitMetrics initializes the OpenTelemetry metrics instrumentation.
 func InitMetrics(ctx context.Context, url string) {
-	conn, err := initConn(url)
-	if err != nil {
-		panic(err)
-	}
-
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			serviceName,
@@ -346,7 +361,7 @@ func InitMetrics(ctx context.Context, url string) {
 		panic(err)
 	}
 
-	_, err = initMeterProvider(ctx, res, conn)
+	_, err = initMeterProvider(ctx, res, url)
 	if err != nil {
 		panic(err)
 	}

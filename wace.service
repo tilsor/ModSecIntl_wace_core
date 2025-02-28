@@ -4,6 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
+Environment=GOGC=10
+Environment=GOMAXPROCS=1
+Restart=always
 ExecStart=/usr/bin/wace /etc/wace/waceconfig.yaml
 
 [Install]

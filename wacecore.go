@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	// "runtime"
 	"strconv"
 	"time"
 
@@ -33,11 +34,11 @@ import (
 	// "go.opentelemetry.io/otel"
 	// "go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
-	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 )
 
 // Analyze(modelsTypeAsString, transactionId, payload string, models []string)
@@ -213,6 +214,7 @@ func closeTransaction(transactionID string, metrics map[string]string) int32 {
 					logger.TPrintln(lg.ERROR, transactionID, "Error getting response code: "+err.Error())
 				} else {
 					processed.Add(ctx, 1, metric.WithAttributes(semconv.HTTPResponseStatusCode(int(vInt))))
+					
 					logger.TPrintln(lg.DEBUG, transactionID, "Metric "+i+" : "+v)
 				}
 			}
@@ -238,13 +240,34 @@ var ctx = context.Background()
 var meter metric.Meter
 var logger = lg.Get()
 
+// func callGC(){ // DEBUG
+// 	logger.Println(lg.DEBUG, "Calling Go Garbage Collector...")
+
+// 	runtime.GC()
+// 	debug.FreeOSMemory()
+
+// 	// fmt.Println(runtime.NumGoroutine())
+
+// 	// var m runtime.MemStats
+// 	// runtime.ReadMemStats(&m)
+// 	// fmt.Println(m.Mallocs-m.Frees)
+// }
+
 func main() {
 
 	// debug.SetGCPercent(1) // DEBUG
+	// debug.SetMemoryLimit(16192000)
 
 	// go func() {
     //     http.ListenAndServe("localhost:9000", nil) // DEBUG
     // }()
+
+	// go func() { // DEBUG
+	// 	for {
+	// 		time.Sleep(time.Microsecond * 5000000)
+	// 		callGC()
+	// 	}
+	// } ()
 
 	flag.Parse()
 	handlers := comm.Handlers{
@@ -266,7 +289,7 @@ func main() {
 	gConfig = new(generalConfig)
 	err := gConfig.LoadConfig(configFilePath)
 	if err != nil {
-		fmt.Print("Error loading general config: %v", err)
+		fmt.Printf("Error loading general config: %v", err)
 		os.Exit(1)
 	}
 

@@ -33,6 +33,15 @@ page](https://github.com/tilsor/ModSecIntl_wace_core/releases).
 For compilation and manual installation instructions, please see the
 [docs](https://github.com/tilsor/ModSecIntl_wace_core/tree/main/docs) directory.
 
+Build RPM from source
+```
+cd ~/waceserver
+rsync -av --progress . wace-{version} --exclude .git
+tar -czvf {user}/rpmbuild/SOURCES/wace-{version}.tar.gz ./wace-{version}/
+cd wace-{version}/
+rpmbuild -ba wace.spec
+```
+
 ## Licence
 Copyright (c) 2022 Tilsor SA, Universidad de la República and
 Universidad Católica del Uruguay. All rights reserved.

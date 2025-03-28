@@ -1,5 +1,5 @@
 Name:           wace
-Version:        1.0
+Version:        1.1
 Release:        1%{?dist}
 Summary:        A framework for adding machine learning capabilities to WAFs and OWASP CRS
 
@@ -9,6 +9,7 @@ Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires: git
 BuildRequires: systemd-rpm-macros
+BuildRequires: protobuf-devel
 
 %description 
 A framework for adding machine learning capabilities to WAFs (such as
@@ -21,15 +22,15 @@ learning model plugin.
 
 %prep
 %autosetup -S git
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.2
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 %build
 #export GOPATH=~/go
 #export PATH=$PATH:$GOPATH/bin
-#wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
-#rm -rf /usr/local/go && tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
-export PATH=$PATH:/usr/local/go/bin
 
 # This is only necessary as long as repos are private
 #go env -w GOPRIVATE=github.com/tilsor/ModSecIntl_logging

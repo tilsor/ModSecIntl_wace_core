@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"time"
 
-	// "strings"
+	"strings"
 	// "sync"
 	comm "wace/comm"
 	// cf "wace/configstore"
@@ -39,6 +39,8 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	// "go.opentelemetry.io/otel/attribute"
 )
 
 // Analyze(modelsTypeAsString, transactionId, payload string, models []string)
@@ -63,6 +65,7 @@ type generalConfig struct {
 	logLevel             lg.LogLevel
 	listenAddress        string
 	listenPort           string
+	histogramType		 string
 }
 
 // WaceGeneralConfigFileData holds the general configuration data from the config file
@@ -107,8 +110,9 @@ func (g *generalConfig) LoadGeneralConfigYaml(config []byte) error {
 			g.listenAddress = value
 		} else if key == "listenport" {
 			g.listenPort = value
+		} else if key == "histogram_kind" {
+			g.histogramType = value
 		}
-
 	}
 	if g.ruleIdsForExceptions == nil {
 		g.ruleIdsForExceptions = make(map[string]int)
@@ -219,16 +223,25 @@ func closeTransaction(transactionID string, metrics map[string]string) int32 {
 				}
 			}
 		} else {
-			duration, err := meter.Float64Histogram("http.client." + i + ".duration.microseconds")
+			duration, err := meter.Float64Histogram("http.client." + strings.ToLower(i) + ".duration.milliseconds")
 			if err != nil {
 				logger.TPrintln(lg.ERROR, transactionID, "Error getting request histogram: "+err.Error())
 			} else {
 				if s, err := strconv.ParseFloat(v, 64); err == nil {
-					duration.Record(ctx, s)
+					duration.Record(ctx, s/1000)
 					logger.TPrintln(lg.DEBUG, transactionID, "Metric "+i+" : "+v)
 				}
 			}
 		}
+	}
+
+	if useManualReader { // TODO: use configstore
+		//Collect Metrics
+		collectedMetrics := &metricdata.ResourceMetrics{}
+		globalManualReader.Collect(ctx,collectedMetrics)
+
+		//Export Metrics
+		globalMetricExporter.Export(ctx,collectedMetrics)
 	}
 
 	wace.CloseTransaction(transactionID)
@@ -293,7 +306,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	InitMetrics(ctx, gConfig.otelURL)
+	InitMetrics(ctx, gConfig.otelURL, gConfig.histogramType)
 	wace.Init(getWaceMeter())
 
 	err = logger.LoadLogger(gConfig.logPath, gConfig.logLevel)
@@ -330,7 +343,7 @@ func initConn(url string) (*grpc.ClientConn, error) {
 }
 
 // initMeterProvider initializes an OTLP exporter, and configures the corresponding meter provider.
-func initMeterProvider(ctx context.Context, res *resource.Resource, url string) (func(context.Context) error, error) {
+func initMeterProvider(ctx context.Context, res *resource.Resource, url, histogram_kind string) (func(context.Context) error, error) {
 	metricExporter, err := stdoutmetric.New()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics exporter: %w", err)
@@ -348,10 +361,34 @@ func initMeterProvider(ctx context.Context, res *resource.Resource, url string) 
 		}
 	}
 
-	meterProvider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(2*time.Second))),
-		sdkmetric.WithResource(res),
-	)
+	globalMetricExporter = metricExporter
+
+	var meterProvider *sdkmetric.MeterProvider
+	meterProvider = &sdkmetric.MeterProvider{}
+
+	if histogram_kind == "delta" {
+		useManualReader = true // TODO: use configstore
+		globalManualReader = sdkmetric.NewManualReader(sdkmetric.WithTemporalitySelector(
+			func (kind sdkmetric.InstrumentKind) metricdata.Temporality {
+				switch kind {
+				case sdkmetric.InstrumentKindHistogram:
+					return metricdata.DeltaTemporality
+				default:
+					return metricdata.CumulativeTemporality
+				}
+			},
+		))
+		meterProvider = sdkmetric.NewMeterProvider(
+			sdkmetric.WithReader(globalManualReader),
+			sdkmetric.WithResource(res),
+		)
+	} else {
+		useManualReader = false // TODO: use configstore
+		meterProvider = sdkmetric.NewMeterProvider(
+			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(2*time.Second))),
+			sdkmetric.WithResource(res),
+		)
+	}
 
 	// Check if MeterProvider is already setted
 	// if otel.GetMeterProvider() != nil {
@@ -366,6 +403,9 @@ func initMeterProvider(ctx context.Context, res *resource.Resource, url string) 
 	return meterProvider.Shutdown, nil
 }
 
+var useManualReader bool // TODO: use configstore
+var globalMetricExporter sdkmetric.Exporter
+var globalManualReader *sdkmetric.ManualReader
 var globalMeterProvider *sdkmetric.MeterProvider
 
 // getWaceMeter returns the meter for the WACE instrumentation.
@@ -374,7 +414,7 @@ func getWaceMeter() metric.Meter {
 }
 
 // InitMetrics initializes the OpenTelemetry metrics instrumentation.
-func InitMetrics(ctx context.Context, url string) {
+func InitMetrics(ctx context.Context, url, histogram_kind string) {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			serviceName,
@@ -384,7 +424,7 @@ func InitMetrics(ctx context.Context, url string) {
 		panic(err)
 	}
 
-	_, err = initMeterProvider(ctx, res, url)
+	_, err = initMeterProvider(ctx, res, url, histogram_kind)
 	if err != nil {
 		panic(err)
 	}

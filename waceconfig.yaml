@@ -2,28 +2,33 @@
 
 # WACE general configuration
 #The full path to the wace log file
-# logpath: "/mnt/c/Users/tobia/Documents/Proyecto de grado/dev/log/wace.log"
 logpath: "/var/log/wace.log"
 #The level of debug, the valid options are - ERROR, WARN, INFO, DEBUG
-loglevel: "ERROR"
+loglevel: "DEBUG"
 
+# modelplugins defines the plugins used for processing transactions.
 modelplugins:
+# In order to configure a plugin, you need to specify the following fields.
+# id (String): a unique identifier for each model plugin.
+# plugintype (String): Specifies the plugin type. Possible values include "RequestHeaders", "RequestBody", "AllRequest", "ResponseHeaders", "ResponseBody", and "AllResponse".
+# path (String): file path to the plugin executable file.
+# weight (Float): defines the weight of this plugin in scoring decisions.
+# mode (String): execution mode, values can be "sync" or "async".
+# remote (Boolean) (Optional): indicates whether the plugin is executed through NATS.
+# params (Optional): key-value list that plugin needs.
   - id: "trivial"
     plugintype: AllRequest
-    # path: "/root/ModSecIntl_wace_core/_plugins/model/trivial.so"
     path: "/usr/lib64/wace/plugins/model/trivial.so"
     weight: 0.25
     mode: sync
   - id: "trivial2"
     plugintype: AllRequest
-    # path: "/root/ModSecIntl_wace_core/_plugins/model/trivial2.so"
     path: "/usr/lib64/wace/plugins/model/trivial2.so"
     weight: 0.5
     threshold: 0.25
     mode: sync
   - id: "trivial_async"
     plugintype: AllRequest
-    # path: "/root/ModSecIntl_wace_core/_plugins/model/trivial_async.so"
     path: "/usr/lib64/wace/plugins/model/trivial_async.so"
     mode: async
     params:
@@ -31,20 +36,31 @@ modelplugins:
 
 #The decision plugin configuration
 decisionplugins:
+# id (String): identifier for each decision plugin.
+# path (String): file path to the plugin executable file.
+# params: Contains parameters for decision-making logic.
+#   waf_weight (String): weight assigned to Web Application Firewall (WAF) in decision scoring.
+#   threshold (String): minimum threshold score to apply the decision plugin’s result.
   - id: "weighted_sum"
-    # path: "/root/ModSecIntl_wace_core/_plugins/decision/weighted_sum.so"
     path: "/usr/lib64/wace/plugins/decision/weighted_sum.so"
     params:
       waf_weight: "0.5"
       threshold: "0.5"
 
-# natsurl: "nats-server:4222"
-natsurl: "192.168.1.42:4222"
+# natsurl (String): URL for the NATS server, which handles messaging between components. Default format is hostname:port.
+# Default is "localhost:4222"
+# natsurl: "localhost:4222"
 
 options:
-  # otelurl: "otel-collector:4317"
-  otelurl: "192.168.1.42:4317"
+  # otelurl (String): URL for the OpenTelemetry collector in order to send metrics.
+  otelurl: "localhost:4317"
+  # crs_version (String): version of the OWASP CRS in use.
   crs_version: "4.4.0-dev"
+  # early_blocking (String): enables or disables early blocking of requests (true or false).
   early_blocking: "false"
+  # listenaddress (String) (Default=localhost): IP address on which WACE is configured to receive incoming connections.
   listenaddress:
   listenport: "50051"
+  # Temporary
+  # Field to set histograms type. This fixes the elastic integration with OTel
+  histogram_kind: "delta"

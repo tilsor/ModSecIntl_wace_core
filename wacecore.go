@@ -20,9 +20,9 @@ import (
 	// "sync"
 	comm "wace/comm"
 	// cf "wace/configstore"
-	cf "github.com/tiroa-tilsor/wacelib/configstore"
+	cf "github.com/tilsor/ModSecIntl_wace_lib/configstore"
 
-	wace "github.com/tiroa-tilsor/wacelib"
+	wace "github.com/tilsor/ModSecIntl_wace_lib"
 
 	lg "github.com/tilsor/ModSecIntl_logging/logging"
 

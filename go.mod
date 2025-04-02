@@ -6,7 +6,7 @@ toolchain go1.23.4
 
 require (
 	github.com/tilsor/ModSecIntl_logging v1.0.1
-	github.com/tiroa-tilsor/wacelib v1.0.1
+	github.com/tilsor/ModSecIntl_wace_lib v1.0.0
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.33.0
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.34.0
@@ -14,11 +14,8 @@ require (
 	go.opentelemetry.io/otel/sdk v1.34.0
 	go.opentelemetry.io/otel/sdk/metric v1.34.0
 	google.golang.org/grpc v1.69.4
-	google.golang.org/protobuf v1.36.2
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-replace github.com/tilsor/ModSecIntl_logging => github.com/tiroa-tilsor/ModSecIntl_logging v1.0.1
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -39,4 +36,5 @@ require (
 	golang.org/x/text v0.21.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241209162323-e6fa225c2576 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
+	google.golang.org/protobuf v1.36.2 // indirect
 )

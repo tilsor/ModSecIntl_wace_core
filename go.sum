@@ -33,10 +33,10 @@ github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/tiroa-tilsor/ModSecIntl_logging v1.0.1 h1:+7drIpf+B2/dCdCyPx1maQVp0FkfqTeveY6ZRYTrdW0=
-github.com/tiroa-tilsor/ModSecIntl_logging v1.0.1/go.mod h1:9RrpYmS4v/wYIiiYXzDW6Lqr8Xb8wq3ejpHi8jmQsyo=
-github.com/tiroa-tilsor/wacelib v1.0.1 h1:IuU5YcSwCNByw8yZ6HLrvbySWtB4fjT8oN3wZfx2rbg=
-github.com/tiroa-tilsor/wacelib v1.0.1/go.mod h1:pDpXeTSGk2gEcFNam35yJcICcCwJ990Nep402zIbrIM=
+github.com/tilsor/ModSecIntl_logging v1.0.1 h1:wFd3SxJPUU5JxX2UlrsH0Ef/m9a18d/VRo4xVCtCxVM=
+github.com/tilsor/ModSecIntl_logging v1.0.1/go.mod h1:9RrpYmS4v/wYIiiYXzDW6Lqr8Xb8wq3ejpHi8jmQsyo=
+github.com/tilsor/ModSecIntl_wace_lib v1.0.0 h1:sETaHNht8b9/Y5CU+ZsfrjeZtiWddFwG5HKTHRZzEms=
+github.com/tilsor/ModSecIntl_wace_lib v1.0.0/go.mod h1:GCrfYAPGBzpvCuf8+Buuvc8zqDXra49+NIcjgtg9yFM=
 go.opentelemetry.io/auto/sdk v1.1.0 h1:cH53jehLUN6UFLY71z+NDOiNJqDdPRaXzTel0sJySYA=
 go.opentelemetry.io/auto/sdk v1.1.0/go.mod h1:3wSPjt5PWp2RhlCcmmOial7AvC4DQqZb7a7wCow3W8A=
 go.opentelemetry.io/otel v1.34.0 h1:zRLXxLCgL1WyKsPVrgbSdMN4c0FMkDAskSTQP+0hdUY=

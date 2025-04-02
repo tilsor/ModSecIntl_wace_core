@@ -36,8 +36,8 @@ IncludeOptional modsecurity.d/owasp-crs/rules/*.conf
 
 ## Clone WACE repos
 ```
-git clone https://github.com/tiroa-tilsor/ModSecIntl_mod_wace.git ~/mod_wace
-git clone https://github.com/tiroa-tilsor/ModSecIntl_wace_core.git ~/wacecore
+git clone https://github.com/tilsor/ModSecIntl_mod_wace.git ~/mod_wace
+git clone https://github.com/tilsor/ModSecIntl_wace_server.git ~/wacecore
 ```
 
 ## mod_wace 

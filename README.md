@@ -10,7 +10,7 @@ with the codified knowledge integrated in the specification of the
 reducing false positives. The next figure shows a high-level
 overview of the architecture:
 
-![WACE architecture overview](https://github.com/tilsor/ModSecIntl_wace_core/blob/main/docs/images/architecture.jpg?raw=true "WACE architecture overview")
+![WACE architecture overview](https://github.com/tilsor/ModSecIntl_wace_server/blob/main/docs/images/architecture.jpg?raw=true "WACE architecture overview")
 
 This repository contains WACE itself, the core component of the
 solution. It connects ModSecurity to the machine learning models.
@@ -28,10 +28,10 @@ site](https://www.fing.edu.uy/inco/proyectos/wafmind)
 ## Installation
 RPM packages for Red Hat Enterprise Linux 8 (or any compatible
 distribution) are provided in the [releases
-page](https://github.com/tilsor/ModSecIntl_wace_core/releases).
+page](https://github.com/tilsor/ModSecIntl_wace_server/releases).
 
 For compilation and manual installation instructions, please see the
-[docs](https://github.com/tilsor/ModSecIntl_wace_core/tree/main/docs) directory.
+[docs](https://github.com/tilsor/ModSecIntl_wace_server/tree/main/docs) directory.
 
 Build RPM from source
 ```

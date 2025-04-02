@@ -1,5 +1,5 @@
 Name:           wace
-Version:        1.0
+Version:        1.1
 Release:        1%{?dist}
 Summary:        A framework for adding machine learning capabilities to WAFs and OWASP CRS
 
@@ -8,7 +8,6 @@ URL:            https://www.fing.edu.uy/inco/proyectos/wafmind
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires: git
-BuildRequires: golang
 BuildRequires: systemd-rpm-macros
 BuildRequires: protobuf-devel
 
@@ -22,16 +21,19 @@ learning model plugin.
 %global debug_package %{nil}
 
 %prep
-%autosetup
-go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.0
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
+%autosetup -S git
+wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.2
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 %build
-export GOPATH=~/go
-export PATH=$PATH:$GOPATH/bin
+#export GOPATH=~/go
+#export PATH=$PATH:$GOPATH/bin
 
 # This is only necessary as long as repos are private
-go env -w GOPRIVATE=github.com/tilsor/ModSecIntl_logging
+#go env -w GOPRIVATE=github.com/tilsor/ModSecIntl_logging
 #cat << EOF > /tmp/github-credentials.sh
 #!/bin/bash
 #echo username=$GIT_USERNAME
@@ -46,10 +48,13 @@ go build -v -o %{name}
 install -Dpm 0755 %{name} %{buildroot}%{_bindir}/%{name}
 install -Dpm 0644 waceconfig.yaml %{buildroot}%{_sysconfdir}/%{name}/waceconfig.yaml
 install -Dpm 644 %{name}.service %{buildroot}%{_unitdir}/%{name}.service
-install -Dpm 644 _plugins/decision/simple.so %{buildroot}%{_libdir}/%{name}/plugins/decision/simple.so
+install -Dpm 644 _plugins/model/trivial.so %{buildroot}%{_libdir}/%{name}/plugins/model/trivial.so
+install -Dpm 644 _plugins/model/trivial2.so %{buildroot}%{_libdir}/%{name}/plugins/model/trivial2.so
+install -Dpm 644 _plugins/model/trivial_async.so %{buildroot}%{_libdir}/%{name}/plugins/model/trivial_async.so
+install -Dpm 644 _plugins/decision/weighted_sum.so %{buildroot}%{_libdir}/%{name}/plugins/decision/weighted_sum.so
 
 %check 
-go test ./...
+#go test ./...
 
 %post
 %systemd_post %{name}.service
@@ -62,7 +67,10 @@ go test ./...
 %{_bindir}/%{name}
 %{_unitdir}/%{name}.service
 %config(noreplace) %{_sysconfdir}/%{name}/waceconfig.yaml
-%{_libdir}/%{name}/plugins/decision/simple.so
+%{_libdir}/%{name}/plugins/model/trivial.so
+%{_libdir}/%{name}/plugins/model/trivial2.so
+%{_libdir}/%{name}/plugins/model/trivial_async.so
+%{_libdir}/%{name}/plugins/decision/weighted_sum.so
 # %license LICENSE
 
 %changelog

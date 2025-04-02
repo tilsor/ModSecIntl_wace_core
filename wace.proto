@@ -35,6 +35,29 @@ service WaceProto {
 
   // Ask WACE whether the transaction should be blocked or not.
   rpc Check(CheckParams) returns (CheckResult) {}
+
+  // Initialize the transaction
+  rpc Init(InitParams) returns (InitResult) {}
+
+  // Closes transaction
+  rpc Close(CloseParams) returns (CloseResult) {}
+}
+
+// Init messages
+message InitParams {
+  string transact_id = 1;
+}
+message InitResult {
+  int32 status_code = 1;
+}
+
+// Close messages
+message CloseParams {
+  string transact_id = 1;
+  map<string,string> metric = 2;
+}
+message CloseResult {
+  int32 status_code = 1;
 }
 
 // Request messages
